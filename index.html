@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII-GEN v1.0 - Terminal Interface</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Source+Code+Pro:wght@400;600&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --terminal-bg: #0a0e14;
+            --terminal-fg: #00ff41;
+            --terminal-accent: #00d9ff;
+            --terminal-border: #1a3a1a;
+            --terminal-shadow: rgba(0, 255, 65, 0.3);
+            --terminal-glow: rgba(0, 255, 65, 0.1);
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Source Code Pro', 'Courier New', monospace;
+            background: #000;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Animated grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px),
+                linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Scanline effect */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 1000;
+            animation: scanline 8s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(10px); }
+        }
+
+        .container {
+            background: var(--terminal-bg);
+            border: 3px solid var(--terminal-border);
+            border-radius: 4px;
+            box-shadow:
+                0 0 40px var(--terminal-shadow),
+                0 0 80px rgba(0, 255, 65, 0.2),
+                inset 0 0 100px rgba(0, 255, 65, 0.02);
+            padding: 0;
+            max-width: 1000px;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Terminal window header */
+        .terminal-header {
+            background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);
+            padding: 10px 15px;
+            border-bottom: 2px solid var(--terminal-border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .terminal-buttons {
+            display: flex;
+            gap: 6px;
+        }
+
+        .terminal-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 0, 0, 0.3);
+        }
+
+        .terminal-btn.close { background: #ff5f56; box-shadow: 0 0 3px #ff5f56; }
+        .terminal-btn.minimize { background: #ffbd2e; box-shadow: 0 0 3px #ffbd2e; }
+        .terminal-btn.maximize { background: #27c93f; box-shadow: 0 0 3px #27c93f; }
+
+        .terminal-title {
+            flex: 1;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .terminal-body {
+            padding: 30px;
+        }
+
+        /* CLI prompt styling */
+        .prompt-line {
+            color: var(--terminal-fg);
+            margin-bottom: 5px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .prompt-symbol {
+            color: var(--terminal-accent);
+            font-weight: bold;
+        }
+
+        .prompt-path {
+            color: #ffa500;
+        }
+
+        h1 {
+            color: var(--terminal-fg);
+            margin-bottom: 5px;
+            font-size: 1.8em;
+            text-shadow: 0 0 10px var(--terminal-shadow);
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 0.9em;
+            font-style: italic;
+        }
+
+        .command-prefix {
+            color: var(--terminal-accent);
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .input-section {
+            margin-bottom: 20px;
+            background: rgba(0, 255, 65, 0.02);
+            padding: 15px;
+            border-left: 3px solid var(--terminal-border);
+            position: relative;
+        }
+
+        .input-section::before {
+            content: '>';
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--terminal-fg);
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--terminal-accent);
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        label::before {
+            content: '$ ';
+            color: var(--terminal-fg);
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid var(--terminal-border);
+            border-radius: 2px;
+            font-size: 15px;
+            color: var(--terminal-fg);
+            font-family: inherit;
+            transition: all 0.3s;
+            outline: none;
+        }
+
+        input[type="text"]::placeholder {
+            color: #334433;
+            font-style: italic;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--terminal-fg);
+            box-shadow: 0 0 15px var(--terminal-glow);
+            background: rgba(0, 0, 0, 0.7);
+        }
+
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid var(--terminal-border);
+            border-radius: 2px;
+            font-size: 15px;
+            color: var(--terminal-fg);
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.3s;
+            outline: none;
+        }
+
+        select option {
+            background: var(--terminal-bg);
+            color: var(--terminal-fg);
+        }
+
+        select:focus {
+            border-color: var(--terminal-fg);
+            box-shadow: 0 0 15px var(--terminal-glow);
+            background: rgba(0, 0, 0, 0.7);
+        }
+
+        .output-section {
+            margin-top: 30px;
+        }
+
+        #output {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid var(--terminal-border);
+            border-radius: 2px;
+            padding: 20px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            white-space: pre;
+            overflow-x: auto;
+            min-height: 200px;
+            color: var(--terminal-fg);
+            font-size: 13px;
+            line-height: 1.2;
+            text-shadow: 0 0 5px var(--terminal-shadow);
+            position: relative;
+        }
+
+        /* Scrollbar styling */
+        #output::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        #output::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        #output::-webkit-scrollbar-thumb {
+            background: var(--terminal-border);
+            border-radius: 4px;
+        }
+
+        #output::-webkit-scrollbar-thumb:hover {
+            background: var(--terminal-fg);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 20px;
+            border: 2px solid var(--terminal-border);
+            border-radius: 2px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        .generate-btn {
+            background: rgba(0, 255, 65, 0.1);
+            color: var(--terminal-fg);
+            border-color: var(--terminal-fg);
+        }
+
+        .generate-btn:hover {
+            background: var(--terminal-fg);
+            color: var(--terminal-bg);
+            box-shadow: 0 0 20px var(--terminal-shadow);
+            transform: translateY(-2px);
+        }
+
+        .generate-btn:active {
+            transform: translateY(0);
+        }
+
+        .copy-btn {
+            background: rgba(0, 217, 255, 0.1);
+            color: var(--terminal-accent);
+            border-color: var(--terminal-accent);
+        }
+
+        .copy-btn:hover {
+            background: var(--terminal-accent);
+            color: var(--terminal-bg);
+            box-shadow: 0 0 20px rgba(0, 217, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .copy-btn:active {
+            transform: translateY(0);
+        }
+
+        .copy-btn.copied {
+            background: var(--terminal-accent);
+            color: var(--terminal-bg);
+        }
+
+        #placeholder {
+            color: #334433;
+            font-style: italic;
+        }
+
+        /* Blinking cursor effect for placeholder */
+        .cursor-blink::after {
+            content: '█';
+            animation: blink 1s infinite;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        /* Status bar at bottom */
+        .status-bar {
+            margin-top: 20px;
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--terminal-border);
+            border-radius: 2px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #666;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            background: var(--terminal-fg);
+            border-radius: 50%;
+            box-shadow: 0 0 5px var(--terminal-shadow);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Glitch effect on hover for title */
+        h1:hover {
+            animation: glitch 0.3s;
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        /* Boot-up animation */
+        @keyframes boot {
+            0% { opacity: 0; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .container {
+            animation: boot 0.5s ease-out;
+        }
+
+        /* Responsive design */
+        @media (max-width: 600px) {
+            .terminal-body {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.4em;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .status-bar {
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            #output {
+                font-size: 11px;
+                min-height: 150px;
+            }
+        }
+
+        /* Additional hacker touches */
+        .flicker {
+            animation: flicker 0.15s infinite;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 1; }
+            50% { opacity: 0.95; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Terminal window header -->
+        <div class="terminal-header">
+            <div class="terminal-buttons">
+                <div class="terminal-btn close"></div>
+                <div class="terminal-btn minimize"></div>
+                <div class="terminal-btn maximize"></div>
+            </div>
+            <div class="terminal-title">root@ascii-gen:~</div>
+        </div>
+
+        <div class="terminal-body">
+            <!-- CLI-style header -->
+            <div class="prompt-line">
+                <span class="prompt-symbol">┌──(</span><span class="prompt-path">root@ascii-generator</span><span class="prompt-symbol">)</span>
+            </div>
+            <div class="prompt-line">
+                <span class="prompt-symbol">└─$</span> <span style="color: #888;">./ascii-gen --interactive</span>
+            </div>
+
+            <h1>&gt; ASCII-GEN v1.0</h1>
+            <p class="subtitle">// Terminal-based ASCII Art Generator</p>
+
+            <div class="input-section">
+                <label for="textInput">Input String</label>
+                <input type="text" id="textInput" placeholder="Enter text to convert..." maxlength="50" autocomplete="off">
+            </div>
+
+            <div class="input-section">
+                <label for="fontSelect">Font Renderer</label>
+                <select id="fontSelect">
+                    <option value="Standard">Standard</option>
+                    <option value="Big">Big</option>
+                    <option value="Block">Block</option>
+                    <option value="Bubble">Bubble</option>
+                    <option value="Digital">Digital</option>
+                    <option value="Graffiti">Graffiti</option>
+                    <option value="Slant">Slant</option>
+                    <option value="Small">Small</option>
+                    <option value="3-D">3-D</option>
+                    <option value="Banner">Banner</option>
+                </select>
+            </div>
+
+            <button class="generate-btn" onclick="generateASCII()">[EXECUTE] Generate</button>
+
+            <div class="output-section">
+                <label>Output Buffer</label>
+                <div id="output"><span id="placeholder" class="cursor-blink">Awaiting input...</span></div>
+                <div class="button-group">
+                    <button class="copy-btn" onclick="copyToClipboard()">[COPY] To Clipboard</button>
+                </div>
+            </div>
+
+            <!-- Status bar -->
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-indicator"></span>
+                    <span>SYSTEM ONLINE</span>
+                </div>
+                <div class="status-item">
+                    <span>ASCII-GEN v1.0.0</span>
+                </div>
+                <div class="status-item">
+                    <span>READY</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/figlet@1.7.0/lib/figlet.js"></script>
+    <script>
+        // Generate ASCII art on Enter key
+        document.getElementById('textInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                generateASCII();
+            }
+        });
+
+        // Generate ASCII art when font changes
+        document.getElementById('fontSelect').addEventListener('change', function() {
+            const text = document.getElementById('textInput').value;
+            if (text) {
+                generateASCII();
+            }
+        });
+
+        function generateASCII() {
+            const text = document.getElementById('textInput').value;
+            const font = document.getElementById('fontSelect').value;
+            const output = document.getElementById('output');
+
+            if (!text) {
+                output.innerHTML = '<span id="placeholder">ERROR: No input string provided. Please enter text.</span>';
+                return;
+            }
+
+            // Show loading message with terminal style
+            output.innerHTML = '<span id="placeholder" class="flicker">[PROCESSING] Rendering ASCII art...</span>';
+
+            // Use fetch to load the font and then generate
+            fetch(`https://unpkg.com/figlet@1.7.0/fonts/${font}.flf`)
+                .then(response => response.text())
+                .then(fontData => {
+                    figlet.parseFont(font, fontData);
+                    figlet.text(text, {
+                        font: font,
+                        horizontalLayout: 'default',
+                        verticalLayout: 'default'
+                    }, function(err, data) {
+                        if (err) {
+                            console.error('Figlet error:', err);
+                            output.innerHTML = '<span id="placeholder">ERROR: ' + err.message + '</span>';
+                            return;
+                        }
+                        output.textContent = data;
+                    });
+                })
+                .catch(err => {
+                    console.error('Font loading error:', err);
+                    output.innerHTML = '<span id="placeholder">ERROR: Font loading failed. Try another renderer!</span>';
+                });
+        }
+
+        function copyToClipboard() {
+            const output = document.getElementById('output');
+            const text = output.textContent;
+
+            if (text.includes('Awaiting input') || text.includes('ERROR:') || text.includes('[PROCESSING]')) {
+                return;
+            }
+
+            navigator.clipboard.writeText(text).then(function() {
+                const btn = document.querySelector('.copy-btn');
+                const originalText = btn.textContent;
+                btn.textContent = '[SUCCESS] Copied!';
+                btn.classList.add('copied');
+
+                setTimeout(function() {
+                    btn.textContent = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            }).catch(function(err) {
+                alert('CLIPBOARD ERROR: ' + err);
+            });
+        }
+
+        // Generate ASCII art on page load if there's text
+        window.addEventListener('load', function() {
+            const text = document.getElementById('textInput').value;
+            if (text) {
+                generateASCII();
+            }
+        });
+
+        // Add some terminal authenticity - log to console on load
+        console.log('%c┌─────────────────────────────────────────┐', 'color: #00ff41');
+        console.log('%c│  ASCII-GEN Terminal v1.0.0              │', 'color: #00ff41');
+        console.log('%c│  System initialized successfully        │', 'color: #00ff41');
+        console.log('%c│  Type: Interactive Mode                 │', 'color: #00ff41');
+        console.log('%c└─────────────────────────────────────────┘', 'color: #00ff41');
+    </script>
+</body>
+</html>
